@@ -3,6 +3,7 @@ package repositories
 import com.google.inject.ImplementedBy
 import models.Profile
 import models.slickmodels.ProfileTable
+import play.api.Logging
 import play.api.inject.ApplicationLifecycle
 import slick.jdbc.PostgresProfile.api._
 
@@ -18,21 +19,12 @@ trait ProfileRepository {
 }
 
 @Singleton
-class ProfileRepositoryImpl @Inject ()(implicit val ec: ExecutionContext, lifecycle: ApplicationLifecycle) extends ProfileRepository {
+class ProfileRepositoryImpl @Inject ()(implicit val ec: ExecutionContext, lifecycle: ApplicationLifecycle)
+  extends ProfileRepository with Logging {
   val db = Database.forConfig("postgres")
 
   lifecycle.addStopHook { () =>
     Future.successful(db.close())
-  }
-
-  val setup = DBIO.seq(
-    // Create the tables, including primary and foreign keys
-    ProfileTable.profiles.schema.createIfNotExists
-  )
-
-  val setupFuture = db.run(setup).onComplete {
-    case Success(ok) => println(ok)
-    case Failure(ex) => ex.printStackTrace()
   }
 
   override def upsert(id: UUID, profile: Profile): Future[Boolean] = {

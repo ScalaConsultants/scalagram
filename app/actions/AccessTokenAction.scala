@@ -28,13 +28,13 @@ class AccessTokenAction @Inject()(parser: BodyParsers.Default, val cache: Cache)
 
     val user = cache.get(new String(id.get))
 
-    println(s"user: ${user}")
+    logger.info(s"user: ${user}")
 
     if(user.isEmpty) return false
 
     val info = Json.parse(user.get).as[SessionInfo]
 
-    println(s"info: ${info}")
+    logger.info(s"info: ${info}")
 
     val now = System.currentTimeMillis()
 
@@ -42,9 +42,6 @@ class AccessTokenAction @Inject()(parser: BodyParsers.Default, val cache: Cache)
   }
 
   override def invokeBlock[A](request: Request[A], block: (Request[A]) => Future[Result]) = {
-    /*logger.info("Calling action")
-    block(request)*/
-
     if(!isValidToken(request)){
       Future.successful(Unauthorized("Invalid access token!"))
     } else {

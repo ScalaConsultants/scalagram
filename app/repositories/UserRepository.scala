@@ -4,6 +4,7 @@ import app.Constants
 import com.google.inject.ImplementedBy
 import models.slickmodels.{ProfileTable, UserTable}
 import models.{CodeInfo, TokenInfo, User, UserStatus, UserUpdate}
+import play.api.Logging
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.Codecs.sha1
 import slick.dbio.DBIOAction
@@ -16,7 +17,7 @@ import scala.util.{Failure, Success}
 
 @ImplementedBy(classOf[UserRepositoryImpl])
 trait UserRepository {
-  def insert(user: User): Future[Option[String]]
+  def insert(user: User): Future[Option[CodeInfo]]
 
   def getCodeInfo(code: String): Future[Option[CodeInfo]]
   def getCodeInfoById(id: UUID): Future[Option[CodeInfo]]
@@ -35,42 +36,36 @@ trait UserRepository {
 }
 
 @Singleton
-class UserRepositoryImpl @Inject ()(implicit val ec: ExecutionContext, lifecycle: ApplicationLifecycle) extends UserRepository {
+class UserRepositoryImpl @Inject ()(implicit val ec: ExecutionContext, lifecycle: ApplicationLifecycle)
+  extends UserRepository with Logging {
   val db = Database.forConfig("postgres")
 
   lifecycle.addStopHook { () =>
     Future.successful(db.close())
   }
 
-  val setup = DBIO.seq(
-    // Create the tables, including primary and foreign keys
-    UserTable.users.schema.createIfNotExists,
-    // Insert some suppliers
-    // UserTable.users += (UUID.randomUUID(), "lucasrpb", "lucasrpb@gmail.com")
-  )
-
-  val setupFuture = db.run(setup).onComplete {
-    case Success(ok) => println(ok)
-    case Failure(ex) => ex.printStackTrace()
-  }
-
-  override def insert(user: User): Future[Option[String]] = {
+  override def insert(user: User): Future[Option[CodeInfo]] = {
     val op = UserTable.users += (user.id, user.username, user.password, user.email, user.phone,
       user.code, user.token, user.createdAt, user.codeLastUpdate, user.tokenLastUpdate, user.status, user.refreshToken)
     db.run(op).map {
-      case n if n == 1 => Some(user.code)
+      case n if n == 1 => Some(CodeInfo(
+        user.id,
+        user.code,
+        user.tokenLastUpdate,
+        Some(user.status)
+      ))
       case _ => None
     }
   }
 
   override def getCodeInfo(code: String): Future[Option[CodeInfo]] = {
-    val op = UserTable.users.filter(_.code === code).map(u => Tuple3(u.code, u.codeLastUpdate, u.status)).result
-    db.run(op).map(_.headOption.map{case (code, lastUpdate, status) => CodeInfo(code, lastUpdate, Some(status))})
+    val op = UserTable.users.filter(_.code === code).map(u => Tuple4(u.id, u.code, u.codeLastUpdate, u.status)).result
+    db.run(op).map(_.headOption.map{case (id, code, lastUpdate, status) => CodeInfo(id, code, lastUpdate, Some(status))})
   }
 
   override def getCodeInfoById(id: UUID): Future[Option[CodeInfo]] = {
     val op = UserTable.users.filter(_.id === id).map(u => Tuple3(u.code, u.codeLastUpdate, u.status)).result
-    db.run(op).map(_.headOption.map{case (code, lastUpdate, status) => CodeInfo(code, lastUpdate, Some(status))})
+    db.run(op).map(_.headOption.map{case (code, lastUpdate, status) => CodeInfo(id, code, lastUpdate, Some(status))})
   }
 
   override def confirm(code: String): Future[Boolean] = {

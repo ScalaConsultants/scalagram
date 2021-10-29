@@ -6,6 +6,11 @@
 # An example controller showing a sample home page
 GET     /                           controllers.HomeController.index()
 
++nocsrf
+POST     /                          controllers.HomeController.login()
+
++nocsrf
+POST    /action                     controllers.HomeController.action()
 # USERS CONTROLLER
 
 +nocsrf
@@ -41,14 +46,22 @@ GET     /profiles/:id  controllers.ProfileController.getProfile(id)
 +nocsrf
 POST   /feed/follow controllers.FeedController.follow()
 
-GET    /feed/follow/:start controllers.FeedController.getFollowers(start: Int)
++nocsrf
+POST   /feed/unfollow/:id controllers.FeedController.unfollow(id)
+
+GET    /feed/follow/:start/:n controllers.FeedController.getFollowers(start: Int, n: Int)
+
+GET    /feed/posts/:start/:n controllers.FeedController.getFeed(start: Int, n: Int)
+
+GET     /posts/stream/:id  controllers.FeedController.feedStream(id)
 
 # POST CONTROLLER
-+nocsrf
+#+nocsrf
 #POST   /posts   controllers.PostController.insert()
-
 +nocsrf
 POST   /posts/upload controllers.PostController.upload()
+
+GET    /posts/:id/:start/:n   controllers.PostController.getPostsByUserId(id: String, start: Int, n: Int)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
